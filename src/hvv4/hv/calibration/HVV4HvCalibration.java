@@ -5,17 +5,50 @@
  */
 package hvv4.hv.calibration;
 
+import hvv_resources.JFileDialogXMLFilter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Date;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
+import javax.swing.table.DefaultTableModel;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
+import org.dom4j.Document;
+import org.dom4j.DocumentException;
+import org.dom4j.DocumentHelper;
+import org.dom4j.Element;
+import org.dom4j.io.OutputFormat;
+import org.dom4j.io.SAXReader;
+import org.dom4j.io.XMLWriter;
+
 /**
  *
  * @author yaroslav
  */
 public class HVV4HvCalibration extends javax.swing.JFrame {
-
+    
+    private final String m_strAMSrootEnvVar;
+    public String GetAMSRoot() { return m_strAMSrootEnvVar; }
+    
+    static Logger logger = Logger.getLogger( HVV4HvCalibration.class);
+    TreeMap m_pCalibration;
+    
     /**
      * Creates new form HVV4HvCalibrationMainFrame
      */
     public HVV4HvCalibration() {
         initComponents();
+        m_strAMSrootEnvVar = System.getenv( "AMS_ROOT");
+        //jTable1.setAutoResizeMode( JTable.AUTO_RESIZE_ALL_COLUMNS);
+        m_pCalibration = new TreeMap();
     }
 
     /**
@@ -45,19 +78,16 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         btnPresetApply = new javax.swing.JButton();
         btnReqCodes = new javax.swing.JButton();
         btnAcceptPoint = new javax.swing.JButton();
-        scrlPanePresets = new javax.swing.JScrollPane();
-        lstPresets = new javax.swing.JList();
-        scrlPaneCodesCurrent = new javax.swing.JScrollPane();
-        lstCodesCurrent = new javax.swing.JList();
-        scrlPaneCodesVoltage = new javax.swing.JScrollPane();
-        lstCodesVoltage = new javax.swing.JList();
-        scrlPaneCurrents = new javax.swing.JScrollPane();
-        lstCurrents = new javax.swing.JList();
-        scrlPaneVoltages = new javax.swing.JScrollPane();
-        lstVoltages = new javax.swing.JList();
+        jScrollPane1 = new javax.swing.JScrollPane();
+        jTable1 = new javax.swing.JTable();
+        jLabel1 = new javax.swing.JLabel();
+        jLabel2 = new javax.swing.JLabel();
+        jLabel3 = new javax.swing.JLabel();
+        btnSave = new javax.swing.JButton();
+        btnLoad = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-        setPreferredSize(new java.awt.Dimension(710, 310));
+        setPreferredSize(new java.awt.Dimension(710, 545));
         setResizable(false);
         getContentPane().setLayout(null);
 
@@ -119,62 +149,191 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         btnReqCodes.setBounds(150, 120, 270, 30);
 
         btnAcceptPoint.setText("Добавить точку");
+        btnAcceptPoint.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnAcceptPointActionPerformed(evt);
+            }
+        });
         getContentPane().add(btnAcceptPoint);
         btnAcceptPoint.setBounds(430, 120, 270, 30);
 
-        lstPresets.setModel(new javax.swing.AbstractListModel() {
-            String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
-            public int getSize() { return strings.length; }
-            public Object getElementAt(int i) { return strings[i]; }
+        jTable1.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null, null}
+            },
+            new String [] {
+                "Код уставки", "Код тока", "Код напряжения", "Ток, мкА", "Напряжение, В"
+            }
+        ) {
+            Class[] types = new Class [] {
+                java.lang.Integer.class, java.lang.Integer.class, java.lang.Integer.class, java.lang.Integer.class, java.lang.Integer.class
+            };
+            boolean[] canEdit = new boolean [] {
+                false, false, false, false, false
+            };
+
+            public Class getColumnClass(int columnIndex) {
+                return types [columnIndex];
+            }
+
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit [columnIndex];
+            }
         });
-        scrlPanePresets.setViewportView(lstPresets);
+        jTable1.getTableHeader().setResizingAllowed(false);
+        jTable1.getTableHeader().setReorderingAllowed(false);
+        jScrollPane1.setViewportView(jTable1);
+        jTable1.getColumnModel().getSelectionModel().setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+        if (jTable1.getColumnModel().getColumnCount() > 0) {
+            jTable1.getColumnModel().getColumn(0).setResizable(false);
+            jTable1.getColumnModel().getColumn(1).setResizable(false);
+            jTable1.getColumnModel().getColumn(2).setResizable(false);
+            jTable1.getColumnModel().getColumn(3).setResizable(false);
+            jTable1.getColumnModel().getColumn(4).setResizable(false);
+        }
 
-        getContentPane().add(scrlPanePresets);
-        scrlPanePresets.setBounds(10, 160, 130, 139);
+        getContentPane().add(jScrollPane1);
+        jScrollPane1.setBounds(10, 183, 690, 320);
 
-        lstCodesCurrent.setModel(new javax.swing.AbstractListModel() {
-            String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
-            public int getSize() { return strings.length; }
-            public Object getElementAt(int i) { return strings[i]; }
+        jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel1.setText("Калибрующие приборы");
+        getContentPane().add(jLabel1);
+        jLabel1.setBounds(430, 160, 270, 20);
+
+        jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel2.setText("Компьютер");
+        getContentPane().add(jLabel2);
+        jLabel2.setBounds(10, 160, 140, 20);
+
+        jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel3.setText("Мантигора");
+        getContentPane().add(jLabel3);
+        jLabel3.setBounds(150, 160, 270, 20);
+
+        btnSave.setText("Сохранить");
+        btnSave.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnSaveActionPerformed(evt);
+            }
         });
-        scrlPaneCodesCurrent.setViewportView(lstCodesCurrent);
+        getContentPane().add(btnSave);
+        btnSave.setBounds(360, 510, 340, 30);
 
-        getContentPane().add(scrlPaneCodesCurrent);
-        scrlPaneCodesCurrent.setBounds(150, 160, 130, 139);
-
-        lstCodesVoltage.setModel(new javax.swing.AbstractListModel() {
-            String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
-            public int getSize() { return strings.length; }
-            public Object getElementAt(int i) { return strings[i]; }
+        btnLoad.setText("Загрузить");
+        btnLoad.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnLoadActionPerformed(evt);
+            }
         });
-        scrlPaneCodesVoltage.setViewportView(lstCodesVoltage);
-
-        getContentPane().add(scrlPaneCodesVoltage);
-        scrlPaneCodesVoltage.setBounds(290, 160, 130, 139);
-
-        lstCurrents.setModel(new javax.swing.AbstractListModel() {
-            String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
-            public int getSize() { return strings.length; }
-            public Object getElementAt(int i) { return strings[i]; }
-        });
-        scrlPaneCurrents.setViewportView(lstCurrents);
-
-        getContentPane().add(scrlPaneCurrents);
-        scrlPaneCurrents.setBounds(430, 160, 130, 139);
-
-        lstVoltages.setModel(new javax.swing.AbstractListModel() {
-            String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
-            public int getSize() { return strings.length; }
-            public Object getElementAt(int i) { return strings[i]; }
-        });
-        scrlPaneVoltages.setViewportView(lstVoltages);
-
-        getContentPane().add(scrlPaneVoltages);
-        scrlPaneVoltages.setBounds(570, 160, 130, 139);
+        getContentPane().add(btnLoad);
+        btnLoad.setBounds(10, 510, 340, 30);
 
         pack();
         setLocationRelativeTo(null);
     }// </editor-fold>//GEN-END:initComponents
+
+    private void btnAcceptPointActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAcceptPointActionPerformed
+        DefaultTableModel model = ( DefaultTableModel) jTable1.getModel();
+        model.addRow( new Integer[] { 1, 2, 3, 4, 5});
+        //model.setValueAt( "Петя", model.getRowCount()-1, 0);
+    }//GEN-LAST:event_btnAcceptPointActionPerformed
+
+    private void btnLoadActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnLoadActionPerformed
+        final JFileChooser fc = new JFileChooser();
+        fc.setFileFilter( new JFileDialogXMLFilter());
+        fc.setCurrentDirectory( new File( GetAMSRoot() + "/etc"));
+        
+        int returnVal = fc.showOpenDialog( this);
+        if( returnVal == JFileChooser.APPROVE_OPTION) {
+            File file = fc.getSelectedFile();
+            //This is where a real application would open the file.
+            logger.info( "LoadFile opening: " + file.getName());
+            
+            TreeMap newCalib = new TreeMap();
+            boolean bResOk = true;
+            try {
+                SAXReader reader = new SAXReader();
+                URL url = file.toURI().toURL();
+                Document document = reader.read( url);
+                Element program = document.getRootElement();
+                if( program.getName().equals( "Calibration")) {
+                    // iterate through child elements of root
+                    for ( Iterator i = program.elementIterator(); i.hasNext(); ) {
+                        Element element = ( Element) i.next();
+                        
+                        String name = element.getName();
+                        String strLineNumber = element.getTextTrim();
+                        int nCode = Integer.parseInt( strLineNumber);
+                        
+                        JProgAStatement statement = JProgAStatement.parse( element);
+                        if( statement != null)
+                            newProgram.put( nLineNumber, statement);
+                        
+                        
+                        logger.debug( "Pairs: [" + name + " : " + strLineNumber + "]");
+                    }
+                    
+                    theApp.m_program = newProgram;
+                    ShowProgram();
+                }
+                else
+                    logger.error( "There is no 'program' root-tag in pointed XML");
+                
+            } catch( MalformedURLException ex) {
+                logger.error( "MalformedURLException caught while loading settings!", ex);
+                bResOk = false;
+            } catch( DocumentException ex) {
+                logger.error( "DocumentException caught while loading settings!", ex);
+                bResOk = false;
+            }
+        
+        } else {
+            logger.info("LoadProgram cancelled.");
+        }
+    }//GEN-LAST:event_btnLoadActionPerformed
+
+    private void btnSaveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSaveActionPerformed
+        Document saveFile = DocumentHelper.createDocument();
+        Element calibration = saveFile.addElement( "Calibration");
+        
+        Set set = m_pCalibration.entrySet();
+        Iterator it = set.iterator();
+        while( it.hasNext()) {
+            Map.Entry entry = (Map.Entry) it.next();
+            
+            int nCode = ( int) entry.getKey();            
+            Hvv4HvCalibrationUnit unit = ( Hvv4HvCalibrationUnit) entry.getValue();            
+            
+            Element statement = calibration.addElement( "Code").addText( "" + nCode);
+            unit.AddXMLStatement( statement);
+            
+        }
+        
+        OutputFormat format = OutputFormat.createPrettyPrint();
+        
+        final JFileChooser fc = new JFileChooser();
+        fc.setFileFilter( new JFileDialogXMLFilter());
+        fc.setCurrentDirectory( new File( GetAMSRoot() + "/etc"));
+        
+        int returnVal = fc.showSaveDialog( this);
+        if( returnVal == JFileChooser.APPROVE_OPTION) {
+            String strFilePathName = fc.getSelectedFile().getAbsolutePath();
+            if( !strFilePathName.endsWith( ".xml"))
+                strFilePathName += ".xml";
+            File file = new File( strFilePathName);            
+            XMLWriter writer;
+            try {
+                writer = new XMLWriter( new FileWriter( file.getAbsolutePath()), format);
+                writer.write( saveFile);
+                writer.close();
+            } catch (IOException ex) {
+                logger.error( "IOException: ", ex);
+            }
+        
+        } else {
+            logger.error( "Пользователь не указал имя файла куда сохранять программу.");
+        }
+    }//GEN-LAST:event_btnSaveActionPerformed
 
     /**
      * @param args the command line arguments
@@ -204,20 +363,69 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         //</editor-fold>
         //</editor-fold>
 
+        //главная переменная окружения
+        String strAMSrootEnvVar = System.getenv( "AMS_ROOT");
+        if( strAMSrootEnvVar == null) {
+            MessageBoxError( "Не задана переменная окружения AMS_ROOT!", "HVV4.CALIB");
+            return;
+        }
+        
+        //настройка логгера
+        String strlog4jPropertiesFile = strAMSrootEnvVar + "/etc/log4j.hvv4.hv.calib.properties";
+        File file = new File( strlog4jPropertiesFile);
+        if(!file.exists())
+            System.out.println("It is not possible to load the given log4j properties file :" + file.getAbsolutePath());
+        else
+            PropertyConfigurator.configure( file.getAbsolutePath());
+
+        logger.info( "");
+        logger.info( "");
+        logger.info( "");
+        logger.info( "******");
+        logger.info( "******");
+        logger.info( "******");
+        
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
                 new HVV4HvCalibration().setVisible(true);
             }
-        });
+        });        
     }
 
+    /**
+     * Функция для сообщения пользователю информационного сообщения
+     * @param strMessage сообщение
+     * @param strTitleBar заголовок
+     */
+    public static void MessageBoxInfo( String strMessage, String strTitleBar)
+    {
+        JOptionPane.showMessageDialog( null, strMessage, strTitleBar, JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    /**
+     * Функция для сообщения пользователю сообщения об ошибке
+     * @param strMessage сообщение
+     * @param strTitleBar заголовок
+     */
+    public static void MessageBoxError( String strMessage, String strTitleBar)
+    {
+        JOptionPane.showMessageDialog( null, strMessage, strTitleBar, JOptionPane.ERROR_MESSAGE);
+    }
+    
+    public Date GetLocalDate() {
+        Date dt = new Date( System.currentTimeMillis() - 1000 * 60 * 60 * -1);//GetSettings().GetTimeZoneShift());
+        return dt;
+    }
+    
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnAcceptPoint;
     private javax.swing.JButton btnConnect;
     private javax.swing.JButton btnDisconnect;
+    private javax.swing.JButton btnLoad;
     private javax.swing.JButton btnPresetApply;
     private javax.swing.JButton btnReqCodes;
+    private javax.swing.JButton btnSave;
     private javax.swing.JButton btnTurnOff;
     private javax.swing.JTextField edtCodeCurrent;
     private javax.swing.JTextField edtCodeVoltage;
@@ -225,21 +433,16 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
     private javax.swing.JTextField edtCurrent;
     private javax.swing.JTextField edtPreset;
     private javax.swing.JTextField edtVoltage;
+    private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel jLabel3;
+    private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JTable jTable1;
     private javax.swing.JLabel lblCodeCurrent;
     private javax.swing.JLabel lblCodeVoltage;
     private javax.swing.JLabel lblComPortTitle;
     private javax.swing.JLabel lblCurrent;
     private javax.swing.JLabel lblPreset;
     private javax.swing.JLabel lblVoltage;
-    private javax.swing.JList lstCodesCurrent;
-    private javax.swing.JList lstCodesVoltage;
-    private javax.swing.JList lstCurrents;
-    private javax.swing.JList lstPresets;
-    private javax.swing.JList lstVoltages;
-    private javax.swing.JScrollPane scrlPaneCodesCurrent;
-    private javax.swing.JScrollPane scrlPaneCodesVoltage;
-    private javax.swing.JScrollPane scrlPaneCurrents;
-    private javax.swing.JScrollPane scrlPanePresets;
-    private javax.swing.JScrollPane scrlPaneVoltages;
     // End of variables declaration//GEN-END:variables
 }

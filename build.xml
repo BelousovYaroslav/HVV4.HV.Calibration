@@ -10,6 +10,41 @@
 <project name="HVV4.HV.Calibration" default="default" basedir=".">
     <description>Builds, tests, and runs the project HVV4.HV.Calibration.</description>
     <import file="nbproject/build-impl.xml"/>
+    
+    <target name="-pre-init">
+        <property name="project.name" value="HVV4 HV (Mantigora) modules calibration Module" />
+        <property name="version.num" value="1.0.0" />
+        <tstamp>
+            <format property="NOW" pattern="yyyy-MM-dd HH:mm:ss z" />
+        </tstamp>
+
+        <!--
+        <exec outputproperty="svna.version" executable="svnversion">
+            <arg value="-c" />
+            <redirector>
+                <outputfilterchain>
+                    <tokenfilter>
+                        <replaceregex pattern="^[0-9]*:?" replace="" flags="g"/>
+                        <replaceregex pattern="M" replace="" flags="g"/>
+                    </tokenfilter>
+                </outputfilterchain>
+            </redirector>
+        </exec>
+        -->
+
+
+        <manifest file="MANIFEST.MF">
+            <attribute name="Bundle-Name" value="${project.name}" />           
+            <attribute name="Bundle-Version" value="${version.num}" />
+            <attribute name="Bundle-Date" value="${NOW}" />
+            <!--<attribute name="Bundle-Revision" value="${svna.version}" />-->
+            <attribute name="Implementation-Title" value="${project.name}" />
+            <attribute name="Implementation-Version" value="${version.num}" />
+            <!--<attribute name="Implementation-URL" value="http://www.example.com" />-->
+        </manifest>
+    </target>
+    
+    
     <!--
 
     There exist several targets which are by default empty and which can be 
@@ -70,4 +105,61 @@
     nbproject/build-impl.xml file. 
 
     -->
+    
+    <target name="-init-macrodef-java">
+        <macrodef name="java" uri="http://www.netbeans.org/ns/j2se-project/1">
+            <attribute default="${main.class}" name="classname"/>
+            <attribute default="${run.classpath}" name="classpath"/>
+            <attribute default="jvm" name="jvm"/>
+            <element name="customize" optional="true"/>
+            <sequential>
+                <java classname="@{classname}" dir="${work.dir}" fork="true">
+                    <jvmarg line="${endorsed.classpath.cmd.line.arg}"/>
+                    <jvmarg value="-Dfile.encoding=${runtime.encoding}"/>
+                    <redirector errorencoding="${runtime.encoding}" inputencoding="${runtime.encoding}" outputencoding="${runtime.encoding}"/>
+                    <jvmarg line="${run.jvmargs}"/>
+                    <jvmarg line="${run.jvmargs.ide}"/>
+                    <classpath>
+                        <path path="@{classpath}"/>
+                    </classpath>
+                    <syspropertyset>
+                        <propertyref prefix="run-sys-prop."/>
+                        <mapper from="run-sys-prop.*" to="*" type="glob"/>
+                    </syspropertyset>
+                    <env key="AMS_ROOT" value="/home/yaroslav/HVV_HOME"/>
+                    <!--<env key="AMS_ROOT" value="/home/control/AMS_ROOT"/>-->
+                    <customize/>
+                </java>
+            </sequential>
+        </macrodef>
+    </target>
+    
+    <target depends="-init-debug-args" name="-init-macrodef-debug">
+        <macrodef name="debug" uri="http://www.netbeans.org/ns/j2se-project/3">
+            <attribute default="${main.class}" name="classname"/>
+            <attribute default="${debug.classpath}" name="classpath"/>
+            <element name="customize" optional="true"/>
+            <sequential>
+                <java classname="@{classname}" dir="${work.dir}" fork="true">
+                    <jvmarg line="${endorsed.classpath.cmd.line.arg}"/>
+                    <jvmarg line="${debug-args-line}"/>
+                    <jvmarg value="-Xrunjdwp:transport=${debug-transport},address=${jpda.address}"/>
+                    <jvmarg value="-Dfile.encoding=${runtime.encoding}"/>
+                    <redirector errorencoding="${runtime.encoding}" inputencoding="${runtime.encoding}" outputencoding="${runtime.encoding}"/>
+                    <jvmarg line="${run.jvmargs}"/>
+                    <jvmarg line="${run.jvmargs.ide}"/>
+                    <classpath>
+                        <path path="@{classpath}"/>
+                    </classpath>
+                    <syspropertyset>
+                        <propertyref prefix="run-sys-prop."/>
+                        <mapper from="run-sys-prop.*" to="*" type="glob"/>
+                    </syspropertyset>
+                    <env key="AMS_ROOT" value="/home/yaroslav/HVV_HOME"/>
+                    <!--<env key="AMS_ROOT" value="/home/control/AMS_ROOT"/>-->
+                    <customize/>
+                </java>
+            </sequential>
+        </macrodef>    
+    </target>
 </project>
