@@ -5,8 +5,11 @@
  */
 package hvv4.hv.calibration;
 
-import hvv_resources.JFileDialogXMLFilter;
+import java.awt.Color;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -18,9 +21,19 @@ import java.util.Set;
 import java.util.TreeMap;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
+import javax.swing.Timer;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 import javax.swing.table.DefaultTableModel;
+import jssc.SerialPort;
+import jssc.SerialPortException;
+import jssc.SerialPortTimeoutException;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.DocumentHelper;
@@ -40,15 +53,67 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
     
     static Logger logger = Logger.getLogger( HVV4HvCalibration.class);
     TreeMap m_pCalibration;
+
+    boolean m_bConnected;
+    boolean m_bGettingData;
+    
+    int nSummCurrent, nSummVoltage;
+    SerialPort m_port;
+    Timer tRefreshState;
     
     /**
      * Creates new form HVV4HvCalibrationMainFrame
      */
     public HVV4HvCalibration() {
         initComponents();
-        m_strAMSrootEnvVar = System.getenv( "AMS_ROOT");
+        
+        m_bConnected = false;
+        m_bGettingData = false;
+        
+        setTitle( "Утилита проведения калибровки в/в модулей. 2018.02.08 13:30. (С) ФЛАВТ, 2018");
         //jTable1.setAutoResizeMode( JTable.AUTO_RESIZE_ALL_COLUMNS);
+        jTable1.getSelectionModel().addListSelectionListener( new ListSelectionListener() {
+
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                int nRow = jTable1.getSelectedRow();
+                if( nRow != -1 && nRow < jTable1.getRowCount()) {
+                    edtPreset.setText( jTable1.getModel().getValueAt( nRow, 0).toString());
+                    edtCodeCurrent.setText( jTable1.getModel().getValueAt( nRow, 1).toString());
+                    edtCodeVoltage.setText( jTable1.getModel().getValueAt( nRow, 2).toString());
+                    edtCurrent.setText( jTable1.getModel().getValueAt( nRow, 3).toString());
+                    edtVoltage.setText( jTable1.getModel().getValueAt( nRow, 4).toString());
+                }
+            }
+            
+        });
+        
+        m_strAMSrootEnvVar = System.getenv( "AMS_ROOT");
+        
         m_pCalibration = new TreeMap();
+        
+        tRefreshState = new Timer( 250, new ActionListener() {
+
+            @Override
+            public void actionPerformed( ActionEvent e) {
+                edtComPortValue.setEditable( !m_bConnected);
+                btnConnect.setEnabled( !m_bConnected);
+                btnDisconnect.setEnabled( m_bConnected & !m_bGettingData);
+                btnTurnOff.setEnabled( m_bConnected & !m_bGettingData);
+                btnPresetApply.setEnabled( m_bConnected & !m_bGettingData);
+                btnReqCodes.setEnabled( m_bConnected);
+                
+                btnReqCodes.setVisible( !m_bGettingData);
+                jProgressBar1.setVisible( m_bGettingData);
+                
+                btnAcceptPoint.setEnabled( !m_bGettingData);
+                btnLoad.setEnabled( !m_bGettingData);
+                btnSaveXML.setEnabled( !m_bGettingData);
+            }
+        });
+        tRefreshState.start();
+        
+        jProgressBar1.setVisible( false);
     }
 
     /**
@@ -77,35 +142,59 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         edtVoltage = new javax.swing.JTextField();
         btnPresetApply = new javax.swing.JButton();
         btnReqCodes = new javax.swing.JButton();
+        jProgressBar1 = new javax.swing.JProgressBar();
         btnAcceptPoint = new javax.swing.JButton();
+        lblPC = new javax.swing.JLabel();
+        lblMantigora = new javax.swing.JLabel();
+        lblCalibrationDevices = new javax.swing.JLabel();
         jScrollPane1 = new javax.swing.JScrollPane();
         jTable1 = new javax.swing.JTable();
-        jLabel1 = new javax.swing.JLabel();
-        jLabel2 = new javax.swing.JLabel();
-        jLabel3 = new javax.swing.JLabel();
-        btnSave = new javax.swing.JButton();
         btnLoad = new javax.swing.JButton();
+        btnSaveXML = new javax.swing.JButton();
+        btnSaveXLS = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setPreferredSize(new java.awt.Dimension(710, 545));
         setResizable(false);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosing(java.awt.event.WindowEvent evt) {
+                formWindowClosing(evt);
+            }
+        });
         getContentPane().setLayout(null);
 
         lblComPortTitle.setText("COM порт:");
         getContentPane().add(lblComPortTitle);
         lblComPortTitle.setBounds(10, 10, 130, 30);
+
+        edtComPortValue.setText("/dev/ttyUSB0");
         getContentPane().add(edtComPortValue);
         edtComPortValue.setBounds(150, 10, 130, 30);
 
         btnConnect.setText("Соединить");
+        btnConnect.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnConnectActionPerformed(evt);
+            }
+        });
         getContentPane().add(btnConnect);
         btnConnect.setBounds(290, 10, 130, 30);
 
         btnDisconnect.setText("Разъединить");
+        btnDisconnect.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnDisconnectActionPerformed(evt);
+            }
+        });
         getContentPane().add(btnDisconnect);
         btnDisconnect.setBounds(430, 10, 130, 30);
 
         btnTurnOff.setText("Снять HV");
+        btnTurnOff.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnTurnOffActionPerformed(evt);
+            }
+        });
         getContentPane().add(btnTurnOff);
         btnTurnOff.setBounds(570, 10, 130, 30);
 
@@ -141,12 +230,26 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         edtVoltage.setBounds(570, 80, 130, 30);
 
         btnPresetApply.setText("Подать");
+        btnPresetApply.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnPresetApplyActionPerformed(evt);
+            }
+        });
         getContentPane().add(btnPresetApply);
         btnPresetApply.setBounds(10, 120, 130, 30);
 
         btnReqCodes.setText("Получить");
+        btnReqCodes.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnReqCodesActionPerformed(evt);
+            }
+        });
         getContentPane().add(btnReqCodes);
         btnReqCodes.setBounds(150, 120, 270, 30);
+
+        jProgressBar1.setMaximum(5);
+        getContentPane().add(jProgressBar1);
+        jProgressBar1.setBounds(150, 120, 270, 30);
 
         btnAcceptPoint.setText("Добавить точку");
         btnAcceptPoint.addActionListener(new java.awt.event.ActionListener() {
@@ -157,9 +260,24 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         getContentPane().add(btnAcceptPoint);
         btnAcceptPoint.setBounds(430, 120, 270, 30);
 
+        lblPC.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        lblPC.setText("Компьютер");
+        getContentPane().add(lblPC);
+        lblPC.setBounds(10, 160, 140, 20);
+
+        lblMantigora.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        lblMantigora.setText("Мантигора");
+        getContentPane().add(lblMantigora);
+        lblMantigora.setBounds(150, 160, 270, 20);
+
+        lblCalibrationDevices.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        lblCalibrationDevices.setText("Калибрующие приборы");
+        getContentPane().add(lblCalibrationDevices);
+        lblCalibrationDevices.setBounds(430, 160, 270, 20);
+
         jTable1.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null, null, null, null}
+
             },
             new String [] {
                 "Код уставки", "Код тока", "Код напряжения", "Ток, мкА", "Напряжение, В"
@@ -195,30 +313,6 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         getContentPane().add(jScrollPane1);
         jScrollPane1.setBounds(10, 183, 690, 320);
 
-        jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel1.setText("Калибрующие приборы");
-        getContentPane().add(jLabel1);
-        jLabel1.setBounds(430, 160, 270, 20);
-
-        jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel2.setText("Компьютер");
-        getContentPane().add(jLabel2);
-        jLabel2.setBounds(10, 160, 140, 20);
-
-        jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel3.setText("Мантигора");
-        getContentPane().add(jLabel3);
-        jLabel3.setBounds(150, 160, 270, 20);
-
-        btnSave.setText("Сохранить");
-        btnSave.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnSaveActionPerformed(evt);
-            }
-        });
-        getContentPane().add(btnSave);
-        btnSave.setBounds(360, 510, 340, 30);
-
         btnLoad.setText("Загрузить");
         btnLoad.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -228,16 +322,138 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         getContentPane().add(btnLoad);
         btnLoad.setBounds(10, 510, 340, 30);
 
+        btnSaveXML.setText("Сохранить XML");
+        btnSaveXML.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnSaveXMLActionPerformed(evt);
+            }
+        });
+        getContentPane().add(btnSaveXML);
+        btnSaveXML.setBounds(530, 510, 170, 30);
+
+        btnSaveXLS.setText("Сохранить Excel");
+        btnSaveXLS.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnSaveXLSActionPerformed(evt);
+            }
+        });
+        getContentPane().add(btnSaveXLS);
+        btnSaveXLS.setBounds(360, 510, 160, 30);
+
         pack();
         setLocationRelativeTo(null);
     }// </editor-fold>//GEN-END:initComponents
 
     private void btnAcceptPointActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAcceptPointActionPerformed
-        DefaultTableModel model = ( DefaultTableModel) jTable1.getModel();
-        model.addRow( new Integer[] { 1, 2, 3, 4, 5});
+        //DefaultTableModel model = ( DefaultTableModel) jTable1.getModel();        
+        //model.addRow( new Integer[] { 1, 2, 3, 4, 5});
         //model.setValueAt( "Петя", model.getRowCount()-1, 0);
+        boolean bFail = false;
+        Integer nPreset = 0, nCodeCurrent = 0, nCodeVoltage = 0, nRealCurrent = 0, nRealVoltage = 0;
+        
+        try {
+            nPreset = Integer.parseInt( edtPreset.getText());
+        }
+        catch( NumberFormatException ex) {
+            bFail = true;
+            edtPreset.setBackground(Color.red);
+            new Timer( 1000, new ActionListener() {
+                @Override
+                public void actionPerformed( ActionEvent e) {
+                    ( ( Timer) e.getSource()).stop();
+                    edtPreset.setBackground( null);
+                }
+            }).start();
+        }
+        
+        try {
+            nCodeCurrent = Integer.parseInt( edtCodeCurrent.getText());
+        }
+        catch( NumberFormatException ex) {
+            bFail = true;
+            edtCodeCurrent.setBackground(Color.red);
+            new Timer( 1000, new ActionListener() {
+                @Override
+                public void actionPerformed( ActionEvent e) {
+                    ( ( Timer) e.getSource()).stop();
+                    edtCodeCurrent.setBackground( null);
+                }
+            }).start();
+        }
+        
+        try {
+            nCodeVoltage = Integer.parseInt( edtCodeVoltage.getText());
+        }
+        catch( NumberFormatException ex) {
+            bFail = true;
+            edtCodeVoltage.setBackground(Color.red);
+            new Timer( 1000, new ActionListener() {
+                @Override
+                public void actionPerformed( ActionEvent e) {
+                    ( ( Timer) e.getSource()).stop();
+                    edtCodeVoltage.setBackground( null);
+                }
+            }).start();
+        }
+        
+        try {
+            nRealCurrent = Integer.parseInt( edtCurrent.getText());
+        }
+        catch( NumberFormatException ex) {
+            bFail = true;
+            edtCurrent.setBackground(Color.red);
+            new Timer( 1000, new ActionListener() {
+                @Override
+                public void actionPerformed( ActionEvent e) {
+                    ( ( Timer) e.getSource()).stop();
+                    edtCurrent.setBackground( null);
+                }
+            }).start();
+        }
+        
+        try {
+            nRealVoltage = Integer.parseInt( edtVoltage.getText());
+        }
+        catch( NumberFormatException ex) {
+            bFail = true;
+            edtVoltage.setBackground(Color.red);
+            new Timer( 1000, new ActionListener() {
+                @Override
+                public void actionPerformed( ActionEvent e) {
+                    ( ( Timer) e.getSource()).stop();
+                    edtVoltage.setBackground( null);
+                }
+            }).start();
+        }
+            
+        if( !bFail) {
+            m_pCalibration.put( nPreset, new Hvv4HvCalibrationUnit( nPreset, nCodeCurrent, nCodeVoltage, nRealCurrent, nRealVoltage));
+            ShowCalibration();
+        }
     }//GEN-LAST:event_btnAcceptPointActionPerformed
 
+    public void ShowCalibration() {
+        DefaultTableModel mdl = ( DefaultTableModel) jTable1.getModel();
+        mdl.getDataVector().removeAllElements();
+        Set set = m_pCalibration.entrySet();
+        Iterator it = set.iterator();
+        while( it.hasNext()) {
+            Map.Entry entry = (Map.Entry) it.next();
+            
+            //int nCode = ( int) entry.getKey();            
+            Hvv4HvCalibrationUnit unit = ( Hvv4HvCalibrationUnit) entry.getValue();            
+            
+            mdl.addRow( new Integer[] { unit.GetCodePreset(),
+                                        unit.GetCodeCurrent(),
+                                        unit.GetCodeVoltage(),
+                                        unit.GetCurrent(),
+                                        unit.GetVoltage()});
+            
+        }
+        
+        
+    }
+    
     private void btnLoadActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnLoadActionPerformed
         final JFileChooser fc = new JFileChooser();
         fc.setFileFilter( new JFileDialogXMLFilter());
@@ -262,22 +478,35 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
                         Element element = ( Element) i.next();
                         
                         String name = element.getName();
-                        String strLineNumber = element.getTextTrim();
-                        int nCode = Integer.parseInt( strLineNumber);
+                        if( "Code".equals(name)) {
+                            int nCode = Integer.parseInt( element.getTextTrim());
                         
-                        JProgAStatement statement = JProgAStatement.parse( element);
+                            boolean bValid = true;
+                            bValid &= ( element.element( "IMant") != null);
+                            bValid &= ( element.element( "IReal") != null);
+                            bValid &= ( element.element( "UMant") != null);
+                            bValid &= ( element.element( "UReal") != null);
+                            
+                            if( bValid)
+                                 newCalib.put( nCode, new Hvv4HvCalibrationUnit( nCode, element));
+
+                        }
+                        /*JProgAStatement statement = JProgAStatement.parse( element);
                         if( statement != null)
                             newProgram.put( nLineNumber, statement);
                         
                         
                         logger.debug( "Pairs: [" + name + " : " + strLineNumber + "]");
+                        */
                     }
                     
-                    theApp.m_program = newProgram;
-                    ShowProgram();
+                    m_pCalibration = newCalib;
+                    ShowCalibration();
+                    
                 }
                 else
-                    logger.error( "There is no 'program' root-tag in pointed XML");
+                    logger.error( "There is no 'Calibration' root-tag in pointed XML");
+                
                 
             } catch( MalformedURLException ex) {
                 logger.error( "MalformedURLException caught while loading settings!", ex);
@@ -292,7 +521,7 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_btnLoadActionPerformed
 
-    private void btnSaveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSaveActionPerformed
+    private void btnSaveXMLActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSaveXMLActionPerformed
         Document saveFile = DocumentHelper.createDocument();
         Element calibration = saveFile.addElement( "Calibration");
         
@@ -304,15 +533,18 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
             int nCode = ( int) entry.getKey();            
             Hvv4HvCalibrationUnit unit = ( Hvv4HvCalibrationUnit) entry.getValue();            
             
-            Element statement = calibration.addElement( "Code").addText( "" + nCode);
-            unit.AddXMLStatement( statement);
+            Element innerElement = calibration.addElement( "Code").addText( "" + nCode);
+            innerElement.addElement( "IMant").addText( "" + unit.GetCodeCurrent());
+            innerElement.addElement( "IReal").addText( "" + unit.GetCurrent());
+            innerElement.addElement( "UMant").addText( "" + unit.GetCodeVoltage());
+            innerElement.addElement( "UReal").addText( "" + unit.GetVoltage());
             
         }
         
         OutputFormat format = OutputFormat.createPrettyPrint();
         
         final JFileChooser fc = new JFileChooser();
-        fc.setFileFilter( new JFileDialogXMLFilter());
+        fc.setFileFilter( new JFileDialogXLSXFilter());
         fc.setCurrentDirectory( new File( GetAMSRoot() + "/etc"));
         
         int returnVal = fc.showSaveDialog( this);
@@ -333,7 +565,328 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         } else {
             logger.error( "Пользователь не указал имя файла куда сохранять программу.");
         }
-    }//GEN-LAST:event_btnSaveActionPerformed
+    }//GEN-LAST:event_btnSaveXMLActionPerformed
+
+    private void btnConnectActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnConnectActionPerformed
+        if( edtComPortValue.getText().isEmpty()) {
+            logger.info( "Connect to no-port? Ha (3 times)");
+            return;
+        }
+        
+        m_port = new SerialPort( edtComPortValue.getText());
+        try {
+            //Открываем порт
+            m_port.openPort();
+
+            //Выставляем параметры
+            m_port.setParams( 921600,
+                                 SerialPort.DATABITS_8,
+                                 0,
+                                 SerialPort.PARITY_NONE);
+            
+        }
+        catch( SerialPortException ex) {
+            logger.error( "COM-Communication exception", ex);
+            m_bConnected = false;
+            return;
+        }
+        m_bConnected = true;
+    }//GEN-LAST:event_btnConnectActionPerformed
+
+    private void btnDisconnectActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDisconnectActionPerformed
+        m_bConnected = false;
+        try {
+            m_port.closePort();
+        } catch( SerialPortException ex) {
+            logger.error( "COM-Communication exception", ex);
+        }
+    }//GEN-LAST:event_btnDisconnectActionPerformed
+
+    private void btnReqCodesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnReqCodesActionPerformed
+        m_bGettingData = true;
+        
+        jProgressBar1.setValue( 0);
+        edtCodeCurrent.setText( "");
+        edtCodeVoltage.setText( "");
+                    
+        nSummCurrent = 0;
+        nSummVoltage = 0;
+        
+        new Timer( 1000, new ActionListener() {
+
+            @Override
+            public void actionPerformed( ActionEvent e) {
+                boolean bFail = false;
+                
+                try {
+                    byte aBytes[] = new byte[1];
+                    aBytes[0] = 0x05;
+
+                    m_port.writeBytes( aBytes);
+                    logger.info( "POLLING (0x05): sent");
+
+                    byte bBytes[] = new byte[5];
+                    bBytes = m_port.readBytes( 5, 800);
+                
+                    logger.info( String.format( "REPOSND RECEIVED: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X", bBytes[0], bBytes[1], bBytes[2], bBytes[3], bBytes[4]));
+                    
+                    if( bBytes[4] == 0x0D) {
+                        //ответ корректный
+                        int nB0 = bBytes[0] & 0xFF;
+                        int nB1 = bBytes[1] & 0xFF;
+                        int nB2 = bBytes[2] & 0xFF;
+                        int nB3 = bBytes[3] & 0xFF;
+                        
+                        int nUval = ( nB2 << 8) + nB3;
+                        int nIval = ( nB0 << 8) + nB1;
+                        
+                        nSummVoltage += nUval;
+                        nSummCurrent += nIval;
+                    }
+                    else {
+                        //а ответ пришёл корявый!
+                        logger.warn( "POLLING FAILED!");
+                        bFail = true;
+                    }
+                } catch( SerialPortException ex) {
+                    
+                    logger.error( "COM-Communication exception", ex);
+                    m_bGettingData = false;
+                    try {
+                        m_port.closePort();
+                    } catch( SerialPortException ex2) {
+                        logger.error( "COM-Communication exception", ex2);
+                    }
+                    m_bConnected = false;
+                    ( ( Timer) e.getSource()).stop();
+                    
+                    edtCodeCurrent.setBackground( Color.red);
+                    edtCodeVoltage.setBackground( Color.red);
+                    new Timer( 1000, new ActionListener() {
+
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            (( Timer) e.getSource()).stop();
+                            edtCodeCurrent.setBackground( null);
+                            edtCodeVoltage.setBackground( null);
+                        }
+                    }).start();
+                    return;
+                }
+                catch( SerialPortTimeoutException ex) {
+                    logger.error( "POLLING TIMEOUT exception", ex);
+                    bFail = true;
+                }
+                
+                if( bFail) {
+                    m_bGettingData = false;
+                    ( ( Timer) e.getSource()).stop();
+                    
+                    edtCodeCurrent.setBackground( Color.red);
+                    edtCodeVoltage.setBackground( Color.red);
+                    new Timer( 1000, new ActionListener() {
+
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            (( Timer) e.getSource()).stop();
+                            edtCodeCurrent.setBackground( null);
+                            edtCodeVoltage.setBackground( null);
+                        }
+                    }).start();
+                    return;
+                }
+                
+                int nValue = jProgressBar1.getValue();
+                if( ++nValue == 5) {
+                    ( ( Timer) e.getSource()).stop();
+                    m_bGettingData = false;
+                    
+                    edtCodeCurrent.setText( "" + nSummCurrent / 5);
+                    edtCodeVoltage.setText( "" + nSummVoltage / 5);
+                    
+                    edtCodeCurrent.setBackground( Color.green);
+                    edtCodeVoltage.setBackground( Color.green);
+                    new Timer( 1000, new ActionListener() {
+
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            (( Timer) e.getSource()).stop();
+                            edtCodeCurrent.setBackground( null);
+                            edtCodeVoltage.setBackground( null);
+                        }
+                    }).start();
+                }
+                jProgressBar1.setValue( nValue);
+            }
+        }).start();
+    }//GEN-LAST:event_btnReqCodesActionPerformed
+
+    private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
+        tRefreshState.stop();
+        
+        if( m_port != null && m_port.isOpened()) {
+            try {
+                m_port.closePort();
+            } catch (SerialPortException ex) {
+                logger.error( "COM-Communication exception", ex);
+            }
+        }
+    }//GEN-LAST:event_formWindowClosing
+
+    private void btnPresetApplyActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnPresetApplyActionPerformed
+        int nPreset = 0;
+        boolean bFail = false;
+        
+        try {
+            nPreset = Integer.parseInt( edtPreset.getText());
+            if( nPreset < 0 || nPreset > 0xFFFF)
+                bFail = true;
+        }
+        catch( NumberFormatException ex) {
+            bFail = true;
+        }
+            
+        if( bFail) {
+            edtPreset.setBackground( Color.red);
+            new Timer( 1000, new ActionListener() {
+                @Override
+                public void actionPerformed( ActionEvent e) {
+                    ( ( Timer) e.getSource()).stop();
+                    edtPreset.setBackground( null);
+                }
+            }).start();
+            return;
+        }
+            
+        byte aBytes[] = new byte[3];
+        aBytes[0] = 0x01;
+        aBytes[1] = ( byte) ( nPreset & 0xFF);
+        aBytes[2] = ( byte) ( ( nPreset & 0xFF00) >> 8);
+        
+        
+        byte bBytes[] = new byte[1];
+        bBytes[0] = 0x02;
+                        
+        try {
+            m_port.writeBytes( aBytes);
+            logger.info( String.format( "SET PRESET (0x%02X 0x%02X 0x%02X): sent", aBytes[0], aBytes[1], aBytes[2]));
+            Thread.sleep( 500);
+            m_port.writeBytes( bBytes);
+            logger.info( String.format( "UPDATE (0x%02X): sent", bBytes[0]));
+            
+        } catch( SerialPortException ex) {
+            logger.error( "COM-Communication exception", ex);
+        } catch( InterruptedException ex) {
+            logger.error( "InterruptedException", ex);
+        }
+    }//GEN-LAST:event_btnPresetApplyActionPerformed
+
+    private void btnTurnOffActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnTurnOffActionPerformed
+        byte aBytes[] = new byte[1];
+        aBytes[0] = 0x03;
+        try {
+            m_port.writeBytes( aBytes);
+            logger.info( "TURN OFF (0x03): sent");   
+        } catch( SerialPortException ex) {
+            logger.error( "COM-Communication exception", ex);
+        }
+    }//GEN-LAST:event_btnTurnOffActionPerformed
+
+    private void btnSaveXLSActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSaveXLSActionPerformed
+        String strFilePathName;
+        final JFileChooser fc = new JFileChooser();
+        fc.setFileFilter( new JFileDialogXLSXFilter());
+        fc.setCurrentDirectory( new File( GetAMSRoot() + "/etc"));
+        
+        int returnVal = fc.showSaveDialog( this);
+        if( returnVal == JFileChooser.APPROVE_OPTION) {
+            strFilePathName = fc.getSelectedFile().getAbsolutePath();
+            if( !strFilePathName.endsWith( ".xlsx"))
+                strFilePathName += ".xlsx";
+            
+        } else {
+            logger.error( "Пользователь не указал имя файла куда сохранять программу.");
+            return;
+        }
+        
+        File file = new File( strFilePathName);
+        if( file.exists())
+            file.delete();        
+        try {
+
+            //Create Blank workbook
+            XSSFWorkbook workbook = new XSSFWorkbook(); 
+
+            //Create a blank sheet
+            XSSFSheet spreadsheet = workbook.createSheet( "TODAY_DATE");
+
+            //Create row object
+            XSSFRow row;
+
+            /*
+            //This data needs to be written (Object[])
+            Map < String, Object[] > empinfo =  new TreeMap < String, Object[] >();
+            empinfo.put( "1", new Object[] { "CODE", "EMP NAME", "DESIGNATION" });
+            empinfo.put( "2", new Object[] { "tp01", "Gopal", "Technical Manager" });
+            empinfo.put( "3", new Object[] { "tp02", "Manisha", "Proof Reader" });
+            empinfo.put( "4", new Object[] { "tp03", "Masthan", "Technical Writer" });
+            empinfo.put( "5", new Object[] { "tp04", "Satish", "Technical Writer" });
+            empinfo.put( "6", new Object[] { "tp05", "Krishna", "Technical Writer" });
+            
+            
+            //Iterate over data and write to sheet
+            Set < String > keyid = empinfo.keySet();
+            int rowid = 0;
+
+            for (String key : keyid) {
+               row = spreadsheet.createRow(rowid++);
+               Object [] objectArr = empinfo.get(key);
+               int cellid = 0;
+
+               for (Object obj : objectArr) {
+                  Cell cell = row.createCell(cellid++);
+                  cell.setCellValue((String)obj);
+               }
+            }
+            */
+            
+            int rowid = 0;
+            row = spreadsheet.createRow(rowid++);
+            
+            Cell cell;
+            cell = row.createCell( 0); cell.setCellValue( "CODE");
+            cell = row.createCell( 1); cell.setCellValue( "IMANT, CODE");
+            cell = row.createCell( 2); cell.setCellValue( "IREAL, V");
+            cell = row.createCell( 3); cell.setCellValue( "UMANT, CODE");
+            cell = row.createCell( 4); cell.setCellValue( "UREAL, V");
+            
+            Set set = m_pCalibration.entrySet();
+            Iterator it = set.iterator();
+            while( it.hasNext()) {
+                
+                Map.Entry entry = (Map.Entry) it.next();
+            
+                Hvv4HvCalibrationUnit unit = ( Hvv4HvCalibrationUnit) entry.getValue();            
+            
+                row = spreadsheet.createRow( rowid++);
+                cell = row.createCell( 0); cell.setCellValue( unit.GetCodePreset());
+                cell = row.createCell( 1); cell.setCellValue( unit.GetCodeCurrent());
+                cell = row.createCell( 2); cell.setCellValue( unit.GetCurrent());
+                cell = row.createCell( 3); cell.setCellValue( unit.GetCodeVoltage());
+                cell = row.createCell( 4); cell.setCellValue( unit.GetVoltage());
+            }
+            
+            //Create file system using specific name
+            FileOutputStream out = new FileOutputStream( new File(strFilePathName));
+
+            //write operation workbook using file out object 
+            workbook.write(out);
+            out.close();
+
+        } catch( IOException ex) {
+            logger.error( "IOException exception", ex);
+        }
+    }//GEN-LAST:event_btnSaveXLSActionPerformed
 
     /**
      * @param args the command line arguments
@@ -425,7 +978,8 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
     private javax.swing.JButton btnLoad;
     private javax.swing.JButton btnPresetApply;
     private javax.swing.JButton btnReqCodes;
-    private javax.swing.JButton btnSave;
+    private javax.swing.JButton btnSaveXLS;
+    private javax.swing.JButton btnSaveXML;
     private javax.swing.JButton btnTurnOff;
     private javax.swing.JTextField edtCodeCurrent;
     private javax.swing.JTextField edtCodeVoltage;
@@ -433,15 +987,16 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
     private javax.swing.JTextField edtCurrent;
     private javax.swing.JTextField edtPreset;
     private javax.swing.JTextField edtVoltage;
-    private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel2;
-    private javax.swing.JLabel jLabel3;
+    private javax.swing.JProgressBar jProgressBar1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JTable jTable1;
+    private javax.swing.JLabel lblCalibrationDevices;
     private javax.swing.JLabel lblCodeCurrent;
     private javax.swing.JLabel lblCodeVoltage;
     private javax.swing.JLabel lblComPortTitle;
     private javax.swing.JLabel lblCurrent;
+    private javax.swing.JLabel lblMantigora;
+    private javax.swing.JLabel lblPC;
     private javax.swing.JLabel lblPreset;
     private javax.swing.JLabel lblVoltage;
     // End of variables declaration//GEN-END:variables
