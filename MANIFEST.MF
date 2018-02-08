@@ -1,9 +1,0 @@
-Manifest-Version: 1.0
-Ant-Version: Apache Ant 1.9.4
-Created-By: 1.7.0_71-b14 (Oracle Corporation)
-Bundle-Name: HVV4 HV (Mantigora) modules calibration Module
-Bundle-Version: 1.0.0
-Bundle-Date: 2018-02-06 18:16:19 MSK
-Implementation-Title: HVV4 HV (Mantigora) modules calibration Module
-Implementation-Version: 1.0.0
-
