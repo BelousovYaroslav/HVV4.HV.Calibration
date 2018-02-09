@@ -6,6 +6,7 @@
 package hvv4.hv.calibration;
 
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -67,6 +68,14 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
     public HVV4HvCalibration() {
         initComponents();
         
+        String strOS = System.getProperty("os.name");
+        if( strOS.contains("win")) {
+            //setResizable( true);
+            Dimension d = getSize();
+            d.height += 50;
+            setSize( d);
+            //setResizable( false);
+        }
         m_bConnected = false;
         m_bGettingData = false;
         
@@ -154,6 +163,8 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         btnSaveXLS = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setMaximumSize(new java.awt.Dimension(710, 545));
+        setMinimumSize(new java.awt.Dimension(710, 545));
         setPreferredSize(new java.awt.Dimension(710, 545));
         setResizable(false);
         addWindowListener(new java.awt.event.WindowAdapter() {
@@ -544,7 +555,7 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         OutputFormat format = OutputFormat.createPrettyPrint();
         
         final JFileChooser fc = new JFileChooser();
-        fc.setFileFilter( new JFileDialogXLSXFilter());
+        fc.setFileFilter( new JFileDialogXMLFilter());
         fc.setCurrentDirectory( new File( GetAMSRoot() + "/etc"));
         
         int returnVal = fc.showSaveDialog( this);
@@ -858,7 +869,7 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
             Cell cell;
             cell = row.createCell( 0); cell.setCellValue( "CODE");
             cell = row.createCell( 1); cell.setCellValue( "IMANT, CODE");
-            cell = row.createCell( 2); cell.setCellValue( "IREAL, V");
+            cell = row.createCell( 2); cell.setCellValue( "IREAL, mcA");
             cell = row.createCell( 3); cell.setCellValue( "UMANT, CODE");
             cell = row.createCell( 4); cell.setCellValue( "UREAL, V");
             
