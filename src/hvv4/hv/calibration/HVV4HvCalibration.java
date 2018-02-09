@@ -579,7 +579,7 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
             m_port.openPort();
 
             //Выставляем параметры
-            m_port.setParams( 921600,
+            m_port.setParams( 38400,
                                  SerialPort.DATABITS_8,
                                  0,
                                  SerialPort.PARITY_NONE);
@@ -646,6 +646,8 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
                     else {
                         //а ответ пришёл корявый!
                         logger.warn( "POLLING FAILED!");
+                        byte cBytes[] = new byte[ 255];
+                        cBytes = m_port.readBytes();
                         bFail = true;
                     }
                 } catch( SerialPortException ex) {
