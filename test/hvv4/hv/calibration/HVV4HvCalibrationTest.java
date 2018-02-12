@@ -58,10 +58,10 @@ public class HVV4HvCalibrationTest {
      * Test of ShowCalibration method, of class HVV4HvCalibration.
      */
     @Test
-    public void testShowCalibration() {
-        System.out.println("ShowCalibration");
+    public void testShowCalibrationP() {
+        System.out.println("ShowCalibrationP");
         HVV4HvCalibration instance = new HVV4HvCalibration();
-        instance.ShowCalibration();
+        instance.ShowCalibrationP();
         // TODO review the generated test code and remove the default call to fail.
         fail("The test case is a prototype.");
     }
