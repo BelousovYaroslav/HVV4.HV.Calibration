@@ -1062,11 +1062,9 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
                 
                 Map.Entry entry = (Map.Entry) it.next();
             
-                Hvv4HvCalibrationUnit unit = ( Hvv4HvCalibrationUnit) entry.getValue();            
-            
                 row = spreadsheet.createRow( rowid++);
-                cell = row.createCell( 0); cell.setCellValue( unit.GetCode());
-                cell = row.createCell( 1); cell.setCellValue( unit.GetValue());
+                cell = row.createCell( 0); cell.setCellValue( ( int) entry.getKey());
+                cell = row.createCell( 1); cell.setCellValue( ( int) entry.getValue());
             }
             
             //Create file system using specific name
@@ -1315,11 +1313,9 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
                 
                 Map.Entry entry = (Map.Entry) it.next();
             
-                Hvv4HvCalibrationUnit unit = ( Hvv4HvCalibrationUnit) entry.getValue();            
-            
                 row = spreadsheet.createRow( rowid++);
-                cell = row.createCell( 0); cell.setCellValue( unit.GetCode());
-                cell = row.createCell( 1); cell.setCellValue( unit.GetValue());
+                cell = row.createCell( 0); cell.setCellValue( ( int) entry.getKey());
+                cell = row.createCell( 1); cell.setCellValue( ( int) entry.getValue());
             }
             
             //Create file system using specific name
@@ -1512,11 +1508,9 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
                 
                 Map.Entry entry = (Map.Entry) it.next();
             
-                Hvv4HvCalibrationUnit unit = ( Hvv4HvCalibrationUnit) entry.getValue();            
-            
                 row = spreadsheet.createRow( rowid++);
-                cell = row.createCell( 0); cell.setCellValue( unit.GetCode());
-                cell = row.createCell( 1); cell.setCellValue( unit.GetValue());
+                cell = row.createCell( 0); cell.setCellValue( ( int) entry.getKey());
+                cell = row.createCell( 1); cell.setCellValue( ( int) entry.getValue());
             }
             
             //Create file system using specific name
