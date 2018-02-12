@@ -556,7 +556,9 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         
         final JFileChooser fc = new JFileChooser();
         fc.setFileFilter( new JFileDialogXMLFilter());
-        fc.setCurrentDirectory( new File( GetAMSRoot() + "/etc"));
+        fc.setCurrentDirectory( new File( GetAMSRoot() + File.separator +
+                                            "etc" + File.separator +
+                                            "calibration"));
         
         int returnVal = fc.showSaveDialog( this);
         if( returnVal == JFileChooser.APPROVE_OPTION) {
@@ -809,7 +811,9 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         String strFilePathName;
         final JFileChooser fc = new JFileChooser();
         fc.setFileFilter( new JFileDialogXLSXFilter());
-        fc.setCurrentDirectory( new File( GetAMSRoot() + "/etc"));
+        fc.setCurrentDirectory( new File( GetAMSRoot() + File.separator +
+                                    "etc" + File.separator +
+                                    "calibration"));
         
         int returnVal = fc.showSaveDialog( this);
         if( returnVal == JFileChooser.APPROVE_OPTION) {
@@ -937,7 +941,10 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         }
         
         //настройка логгера
-        String strlog4jPropertiesFile = strAMSrootEnvVar + "/etc/log4j.hvv4.hv.calib.properties";
+        String strlog4jPropertiesFile = strAMSrootEnvVar + File.separator +
+                                        "etc" + File.separator +
+                                        "log4j" + File.separator +
+                                        "log4j.hvv4.hv.calib.properties";
         File file = new File( strlog4jPropertiesFile);
         if(!file.exists())
             System.out.println("It is not possible to load the given log4j properties file :" + file.getAbsolutePath());
