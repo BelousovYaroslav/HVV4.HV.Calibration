@@ -727,7 +727,7 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
             int nCode  = ( int) entry.getKey();            
             int nValue = ( int) entry.getValue();            
             
-            Element e = calibration.addElement( "");
+            Element e = calibration.addElement( "cpoint");
             e.addAttribute( "code", "" + nCode);
             e.addAttribute( "value", "" + nValue);
         }
@@ -1207,7 +1207,7 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
             int nCode  = ( int) entry.getKey();            
             int nValue = ( int) entry.getValue();            
             
-            Element e = calibration.addElement( "");
+            Element e = calibration.addElement( "cpoint");
             e.addAttribute( "code", "" + nCode);
             e.addAttribute( "value", "" + nValue);
         }
@@ -1402,7 +1402,7 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
             int nCode  = ( int) entry.getKey();            
             int nValue = ( int) entry.getValue();            
             
-            Element e = calibration.addElement( "");
+            Element e = calibration.addElement( "cpoint");
             e.addAttribute( "code", "" + nCode);
             e.addAttribute( "value", "" + nValue);
         }
@@ -1620,11 +1620,27 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
     }//GEN-LAST:event_btnAcceptUPointActionPerformed
 
     private void edtPvalueKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_edtPvalueKeyTyped
-        edtIvalue.setText( edtIvalue.getText() + evt.getKeyChar());
+       new Timer( 10, new ActionListener() {
+            
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                Timer tt = ( Timer) e.getSource();
+                tt.stop();
+                edtIvalue.setText( edtPvalue.getText());
+            }
+        }).start();
     }//GEN-LAST:event_edtPvalueKeyTyped
 
     private void edtIvalueKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_edtIvalueKeyTyped
-        edtPvalue.setText( edtPvalue.getText() + evt.getKeyChar());
+        new Timer( 10, new ActionListener() {
+            
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                Timer tt = ( Timer) e.getSource();
+                tt.stop();
+                edtPvalue.setText( edtIvalue.getText());
+            }
+        }).start();
     }//GEN-LAST:event_edtIvalueKeyTyped
 
     /**
