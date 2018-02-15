@@ -72,10 +72,10 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         
         String strOS = System.getProperty("os.name");
         logger.info( "OS:" + strOS);
-        if( strOS.contains("win")) {
+        if( strOS.contains("inu")) {
             //setResizable( true);
             Dimension d = getSize();
-            d.height += 50;
+            d.height -= 40;
             setSize( d);
             //setResizable( false);
         }
