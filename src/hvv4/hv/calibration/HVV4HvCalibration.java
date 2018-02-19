@@ -1093,6 +1093,15 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         if( nSelection == -1) return;
         DefaultTableModel mdl = ( DefaultTableModel) tblPCalib.getModel();
         mdl.removeRow( nSelection);
+        
+        int nCode;
+        try {
+            nCode = Integer.parseInt( edtPcode.getText());
+            m_pCalibrationP.remove( nCode);
+        }
+        catch( NumberFormatException ex) {
+            logger.error( "Remove P-Point:", ex);
+        }
     }//GEN-LAST:event_btnRemovePPointActionPerformed
 
     private void btnAcceptPPointActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAcceptPPointActionPerformed
@@ -1530,6 +1539,15 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         if( nSelection == -1) return;
         DefaultTableModel mdl = ( DefaultTableModel) tblICalib.getModel();
         mdl.removeRow( nSelection);
+        
+        int nCode;
+        try {
+            nCode = Integer.parseInt( edtIcode.getText());
+            m_pCalibrationI.remove( nCode);
+        }
+        catch( NumberFormatException ex) {
+            logger.error( "Remove I-Point:", ex);
+        }
     }//GEN-LAST:event_btnRemoveIPointActionPerformed
 
     private void btnAcceptIPointActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAcceptIPointActionPerformed
@@ -1577,6 +1595,15 @@ public class HVV4HvCalibration extends javax.swing.JFrame {
         if( nSelection == -1) return;
         DefaultTableModel mdl = ( DefaultTableModel) tblUCalib.getModel();
         mdl.removeRow( nSelection);
+        
+        int nCode;
+        try {
+            nCode = Integer.parseInt( edtUcode.getText());
+            m_pCalibrationU.remove( nCode);
+        }
+        catch( NumberFormatException ex) {
+            logger.error( "Remove U-Point:", ex);
+        }
     }//GEN-LAST:event_btnRemoveUPointActionPerformed
 
     private void btnAcceptUPointActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAcceptUPointActionPerformed
